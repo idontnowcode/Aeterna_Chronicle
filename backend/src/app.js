@@ -19,7 +19,9 @@ const PORT = process.env.PORT || 3000;
 
 // ── 미들웨어 ──────────────────────────────────────────
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGIN || '*',
+}));
 app.use(express.json());
 
 // 전역 Rate Limit (분당 100 요청)
