@@ -11,7 +11,7 @@ router.use(auth);
 // GET /api/item — 인벤토리 목록
 router.get('/', async (req, res) => {
   try {
-    const items = await Item.find({ ownerId: req.userId }).lean();
+    const items = await Item.find({ userId: req.userId }).lean();
     res.json(items);
   } catch {
     res.status(500).json({ error: 'SERVER_ERROR' });
@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
 // GET /api/item/:id — 아이템 상세
 router.get('/:id', async (req, res) => {
   try {
-    const item = await Item.findOne({ _id: req.params.id, ownerId: req.userId }).lean();
+    const item = await Item.findOne({ _id: req.params.id, userId: req.userId }).lean();
     if (!item) return res.status(404).json({ error: 'ITEM_NOT_FOUND' });
     res.json(item);
   } catch {
@@ -57,8 +57,8 @@ router.post('/:id/enhance', async (req, res) => {
       success:             result.success,
       failureType:         result.failureType,
       destroyed:           result.destroyed,
-      previousEnhancement: result.previousEnhancement,
-      newEnhancement:      result.newEnhancement,
+      previousStage: result.previousStage,
+      newStage:      result.newStage,
       currencyUsed:        result.currencyUsed,
       item:                result.item,
     });

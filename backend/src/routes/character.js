@@ -34,11 +34,8 @@ router.post('/', [
     const exists = await Character.findOne({ userId: req.userId });
     if (exists) return res.status(409).json({ error: 'CHARACTER_ALREADY_EXISTS' });
 
-    const { name, attribute, appearance } = req.body;
-    const char = Character.createForUser(req.userId, name, attribute);
-    if (appearance) char.appearance = { ...char.appearance, ...appearance };
-
-    await char.save();
+    const { name, attribute } = req.body;
+    const char = await Character.createForUser(req.userId, name, attribute);
     res.status(201).json(char);
   } catch (err) {
     res.status(500).json({ error: 'SERVER_ERROR', detail: err.message });
@@ -54,7 +51,7 @@ router.post('/offline-reward', async (req, res) => {
     const char = await Character.findOne({ userId: req.userId });
     if (!char) return res.status(404).json({ error: 'CHARACTER_NOT_FOUND' });
 
-    const rewards = calcOfflineRewards(user.lastLoginAt, user.vip.isActive);
+    const rewards = calcOfflineRewards(user.lastLoginAt, user.vip.active);
 
     if (rewards.gold === 0 && rewards.exp === 0) {
       return res.json({ message: 'NO_REWARDS', rewards });

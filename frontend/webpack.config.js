@@ -9,8 +9,10 @@ module.exports = {
   },
   devServer: {
     static: path.resolve(__dirname, '.'),
+    host: '0.0.0.0',
     port: 8080,
     hot: true,
+    allowedHosts: 'all',
     proxy: [
       { context: ['/api'], target: 'http://localhost:3000' },
     ],

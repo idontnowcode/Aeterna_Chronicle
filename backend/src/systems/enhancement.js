@@ -1,112 +1,78 @@
 /**
- * 아이템 강화 시스템 (PRD 6.3)
- * 최대 +20, 구간별 성공률 및 실패 유형 가중치 차등 적용
+ * 아이템 강화 시스템 (PRD v0.5 §6.3)
  */
 
 const Item = require('../models/Item');
-const { ENHANCEMENT_SUCCESS_RATES, FAILURE_WEIGHT_BY_STAGE } = require('../models/Item');
+const { ENHANCEMENT_SUCCESS_RATES, getFailureWeights } = require('../models/Item');
 
-// 강화 단계별 소요 재료 (임시값 — 경제 밸런스 확정 후 조정)
 function getEnhancementCost(currentStage) {
-  const baseGold  = 200;
-  const baseStone = 1;
-  const multiplier = Math.pow(1.4, currentStage); // 단계마다 1.4배 증가
-
+  const multiplier = Math.pow(1.4, currentStage);
   return {
-    gold:          Math.floor(baseGold  * multiplier),
-    enhanceStone:  Math.floor(baseStone * multiplier) + Math.floor(currentStage / 5),
+    gold:         Math.floor(200 * multiplier),
+    enhanceStone: Math.floor(1 * multiplier) + Math.floor(currentStage / 5),
   };
 }
 
-/**
- * 실패 유형 결정 (가중치 기반 랜덤)
- * 유형: 'material_loss' | 'random_decrease' | 'reset_to_1' | 'destroy'
- */
 function rollFailureType(stage) {
-  const weights = FAILURE_WEIGHT_BY_STAGE(stage);
+  const weights = getFailureWeights(stage);
   const types   = ['material_loss', 'random_decrease', 'reset_to_1', 'destroy'];
-  const total   = weights.reduce((s, w) => s + w, 0);
-  let rand = Math.random() * total;
-
+  let rand = Math.random() * weights.reduce((s, w) => s + w, 0);
   for (let i = 0; i < types.length; i++) {
     rand -= weights[i];
     if (rand <= 0) return types[i];
   }
-  return types[0];
+  return 'material_loss';
 }
 
-/**
- * 강화 시도
- * @param {string} itemId   - Item ObjectId
- * @param {string} userId   - 소유자 검증용
- * @param {object} userCurrency - { gold, enhanceStone }
- * @returns {object} { success, failureType, item, currencyUsed, newEnhancement, destroyed }
- */
 async function tryEnhance(itemId, userId, userCurrency) {
-  const item = await Item.findOne({ _id: itemId, ownerId: userId });
-  if (!item) throw new Error('ITEM_NOT_FOUND');
-  if (item.isEquipped) throw new Error('ITEM_IS_EQUIPPED');
-  if (item.enhancement >= 20) throw new Error('ALREADY_MAX_ENHANCEMENT');
+  const item = await Item.findOne({ _id: itemId, userId });
+  if (!item)              throw Object.assign(new Error('ITEM_NOT_FOUND'),         { status: 404 });
+  if (item.isDestroyed)   throw Object.assign(new Error('ITEM_DESTROYED'),         { status: 400 });
+  if (item.enhanceStage >= 20) throw Object.assign(new Error('ALREADY_MAX'),      { status: 400 });
 
-  const stage = item.enhancement;
+  const stage = item.enhanceStage;
   const cost  = getEnhancementCost(stage);
 
-  if ((userCurrency.gold || 0) < cost.gold) throw new Error('INSUFFICIENT_GOLD');
-  if ((userCurrency.enhanceStone || 0) < cost.enhanceStone) throw new Error('INSUFFICIENT_ENHANCE_STONE');
+  if ((userCurrency.gold || 0) < cost.gold)
+    throw Object.assign(new Error('INSUFFICIENT_GOLD'), { status: 400 });
+  if ((userCurrency.enhanceStone || 0) < cost.enhanceStone)
+    throw Object.assign(new Error('INSUFFICIENT_ENHANCE_STONE'), { status: 400 });
 
-  // 성공 여부 판정
   const successRate = ENHANCEMENT_SUCCESS_RATES[stage] ?? 0.03;
   const isSuccess   = Math.random() < successRate;
 
-  let failureType  = null;
-  let destroyed    = false;
-  let newEnhancement = stage;
+  let failureType = null;
+  let destroyed   = false;
+  let newStage    = stage;
 
   if (isSuccess) {
-    newEnhancement = stage + 1;
-    item.enhancement = newEnhancement;
-    item.enhancementStats = item.calcEnhancementStats();
+    newStage = stage + 1;
+    item.enhanceStage = newStage;
     await item.save();
   } else {
     failureType = rollFailureType(stage);
-
     switch (failureType) {
       case 'material_loss':
-        // 소모재만 손실, 강화 수치 유지
         break;
-
-      case 'random_decrease': {
-        const decrease = Math.floor(Math.random() * 3) + 1; // -1 ~ -3
-        newEnhancement = Math.max(0, stage - decrease);
-        item.enhancement = newEnhancement;
-        item.enhancementStats = item.calcEnhancementStats();
+      case 'random_decrease':
+        newStage = Math.max(0, stage - (Math.floor(Math.random() * 3) + 1));
+        item.enhanceStage = newStage;
         await item.save();
         break;
-      }
-
       case 'reset_to_1':
-        newEnhancement = 1;
-        item.enhancement = 1;
-        item.enhancementStats = item.calcEnhancementStats();
+        newStage = 1;
+        item.enhanceStage = 1;
         await item.save();
         break;
-
       case 'destroy':
         destroyed = true;
-        await Item.deleteOne({ _id: itemId });
+        item.isDestroyed = true;
+        await item.save();
         break;
     }
   }
 
-  return {
-    success: isSuccess,
-    failureType,
-    destroyed,
-    newEnhancement,
-    previousEnhancement: stage,
-    currencyUsed: cost,
-    item: destroyed ? null : item,
-  };
+  return { success: isSuccess, failureType, destroyed, newStage, previousStage: stage, currencyUsed: cost };
 }
 
 module.exports = { tryEnhance, getEnhancementCost, rollFailureType };

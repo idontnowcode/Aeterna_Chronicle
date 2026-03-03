@@ -44,26 +44,20 @@ router.post('/battle', async (req, res) => {
     if (!char) return res.status(404).json({ error: 'CHARACTER_NOT_FOUND' });
 
     // 플레이어 전투 스탯 구성 (캐릭터 + 페트)
-    const petStats = char.activePetId
-      ? char.activePetId.stats
-      : { hp: 0, mp: 0, atk: 0, matk: 0, def: 0, mdef: 0, spd: 0, crit: 0, dodge: 0 };
-
-    const petSkills = char.activePetId?.skills ?? [];
+    const petStats = char.activePetId?.baseStats ?? {};
 
     const playerCombined = {
       attribute: char.attribute,
       stats: {
-        hp:    char.baseStats.hp    + (petStats.hp    || 0),
-        mp:    char.baseStats.mp    + (petStats.mp    || 0),
-        atk:   char.baseStats.atk   + (petStats.atk   || 0),
-        matk:  char.baseStats.matk  + (petStats.matk  || 0),
-        def:   char.baseStats.def   + (petStats.def   || 0),
-        mdef:  char.baseStats.mdef  + (petStats.mdef  || 0),
-        spd:   char.baseStats.spd   + (petStats.spd   || 0),
-        crit:  char.baseStats.crit  + (petStats.crit  || 0),
-        dodge: char.baseStats.dodge + (petStats.dodge || 0),
+        hp:    char.baseStats.hp    + (petStats.hp  || 0),
+        mp:    char.baseStats.mp    || 0,
+        atk:   char.baseStats.atk   + (petStats.atk || 0),
+        def:   char.baseStats.def   + (petStats.def || 0),
+        spd:   char.baseStats.spd   + (petStats.spd || 0),
+        crit:  char.baseStats.crit  || 0,
+        dodge: char.baseStats.dodge || 0,
       },
-      skills: petSkills,
+      skills: [],
     };
 
     const result = simulateBattle({
