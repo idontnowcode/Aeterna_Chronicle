@@ -60,6 +60,8 @@ async function start() {
   });
 }
 
-start();
+if (require.main === module) {
+  start();
+}
 
-module.exports = app; // 테스트용
+module.exports = { app, connectMongoDB };
