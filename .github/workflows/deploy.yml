@@ -23,6 +23,8 @@ jobs:
           node-version: '20'
 
       - name: Build frontend
+        env:
+          API_URL: ${{ secrets.API_URL }}
         run: |
           cd frontend
           npm install

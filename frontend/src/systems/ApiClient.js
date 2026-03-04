@@ -2,7 +2,9 @@
  * API 클라이언트 — 백엔드 REST API 통신
  */
 
-const BASE_URL = '/api';
+const BASE_URL = (typeof __API_URL__ !== 'undefined' && __API_URL__)
+  ? `${__API_URL__}/api`
+  : '/api';
 
 class ApiClient {
   constructor() {

@@ -1,4 +1,5 @@
 const path = require('path');
+const webpack = require('webpack');
 
 module.exports = {
   entry: './src/main.js',
@@ -7,6 +8,11 @@ module.exports = {
     filename: 'bundle.js',
     clean: true,
   },
+  plugins: [
+    new webpack.DefinePlugin({
+      __API_URL__: JSON.stringify(process.env.API_URL || ''),
+    }),
+  ],
   devServer: {
     static: path.resolve(__dirname, '.'),
     host: '0.0.0.0',
